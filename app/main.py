@@ -2,6 +2,7 @@ import shutil
 import sys
 import subprocess
 import os
+import shlex
 
 
 def main():
@@ -12,7 +13,8 @@ def main():
 
         try:
             line = input()
-            parts = line.strip().split()
+            # Use shlex.split to handle single quotes correctly
+            parts = shlex.split(line, posix=True)
             if not parts:
                 continue  # Ignore empty input
 
