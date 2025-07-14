@@ -3,10 +3,22 @@ import sys
 import subprocess
 import os
 import shlex
+import readline
+
+
+def completer(text, state):
+    builtins = ["echo", "exit"]
+    options = [cmd for cmd in builtins if cmd.startswith(text)]
+    if state < len(options):
+        # Add a space after the completion
+        return options[state] + " "
+    return None
 
 
 def main():
     builtins = {"echo", "exit", "type", "pwd", "cd"}
+    readline.set_completer(completer)
+    readline.parse_and_bind("tab: complete")
     while True:
         sys.stdout.write("$ ")
         sys.stdout.flush()
