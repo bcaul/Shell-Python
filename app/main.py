@@ -1,5 +1,6 @@
 import shutil
 import sys
+import subprocess
 
 
 def main():
@@ -50,7 +51,17 @@ def main():
                 sys.exit(status)
 
             else:
-                print(f"{cmd}: command not found")
+                # Check if command exists in PATH
+                executable = shutil.which(cmd)
+                if executable:
+                    try:
+                        # Run the external program with arguments
+                        subprocess.run([executable] + args)
+                    except Exception as e:
+                        print(f"Error executing {cmd}: {e}")
+                else:
+                    print(f"{cmd}: command not found")
+                    
         except EOFError:
             break
 
