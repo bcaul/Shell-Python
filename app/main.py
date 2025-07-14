@@ -4,7 +4,7 @@ import subprocess
 
 
 def main():
-    builtins = {"echo", "exit", "type", "pwd"}
+    builtins = {"echo", "exit", "type", "pwd", "cd"}
     while True:
         sys.stdout.write("$ ")
         sys.stdout.flush()
@@ -52,6 +52,17 @@ def main():
 
             elif cmd == "pwd":
                 print(shutil.os.getcwd())
+            
+            elif cmd == "cd":
+                if args:
+                    try:
+                        shutil.os.chdir(args[0])
+                    except FileNotFoundError:
+                        print(f"cd: {args[0]}: No such file or directory", file=sys.stderr)
+                    except PermissionError:
+                        print(f"cd: {args[0]}: Permission denied", file=sys.stderr)
+                else:
+                    print("cd: missing argument", file=sys.stderr)
 
             else:
                 # Check if command exists in PATH
