@@ -46,7 +46,7 @@ def main():
                     try:
                         status = int(args[0])
                     except ValueError:
-                        print(f"exit: {args[0]}: numeric argument required")
+                        print(f"exit: {args[0]}: numeric argument required", file=sys.stderr)
                         status = 1
                 sys.exit(status)
 
