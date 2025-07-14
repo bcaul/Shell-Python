@@ -56,7 +56,7 @@ def main():
                 if executable:
                     try:
                         # Run the external program with arguments
-                        subprocess.run([executable] + args)
+                        subprocess.run([cmd] + args)
                     except Exception as e:
                         print(f"Error executing {cmd}: {e}")
                 else:
