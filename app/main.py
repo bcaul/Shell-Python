@@ -221,6 +221,72 @@ def main():
                             print(f"{cmd}: command not found", file=sys.stderr)
                 continue  # Skip normal command handling
 
+            # Append stderr support
+            if "2>>" in parts:
+                op_index = parts.index("2>>")
+                cmd_parts = parts[:op_index]
+                errfile = parts[op_index + 1] if len(parts) > op_index + 1 else None
+                if not errfile:
+                    print("No error file specified for append redirection", file=sys.stderr)
+                    continue
+                cmd = cmd_parts[0]
+                args = cmd_parts[1:]
+                with open(errfile, "a") as ef:
+                    if cmd in builtins:
+                        # Only echo and pwd produce output, errors go to ef
+                        if cmd == "echo":
+                            print(" ".join(args))
+                        elif cmd == "pwd":
+                            print(shutil.os.getcwd())
+                        else:
+                            if cmd == "exit":
+                                status = 0
+                                if args:
+                                    try:
+                                        status = int(args[0])
+                                    except ValueError:
+                                        print(f"exit: {args[0]}: numeric argument required", file=ef)
+                                        status = 1
+                                sys.exit(status)
+                            elif cmd == "cd":
+                                if args:
+                                    target = args[0]
+                                    if target == "~":
+                                        target = os.environ.get("HOME", "")
+                                    try:
+                                        shutil.os.chdir(target)
+                                    except FileNotFoundError:
+                                        print(f"cd: {args[0]}: No such file or directory", file=ef)
+                                    except PermissionError:
+                                        print(f"cd: {args[0]}: Permission denied", file=ef)
+                                else:
+                                    print("cd: missing argument", file=ef)
+                            elif cmd == "type":
+                                if args:
+                                    try:
+                                        arg_cmd = str(args[0])
+                                        if arg_cmd in builtins:
+                                            out = f"{arg_cmd} is a shell builtin"
+                                        elif p := shutil.which(arg_cmd):
+                                            out = f"{arg_cmd} is {p}"
+                                        else:
+                                            out = f"{arg_cmd}: not found"
+                                    except Exception:
+                                        out = f"{args[0]}: unable to read argument to type command"
+                                else:
+                                    out = "argument required after type command"
+                                print(out)
+                    else:
+                        executable = shutil.which(cmd)
+                        if executable:
+                            try:
+                                subprocess.run([cmd] + args, stdout=sys.stdout, stderr=ef)
+                            except Exception as e:
+                                print(f"Error executing {cmd}: {e}", file=ef)
+                        else:
+                            print(f"{cmd}: command not found", file=ef)
+                continue  # Skip normal command handling
+
             cmd = parts[0]
             args = parts[1:]
 
