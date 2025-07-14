@@ -4,7 +4,7 @@ import subprocess
 
 
 def main():
-    builtins = {"echo", "exit", "type"}
+    builtins = {"echo", "exit", "type", "pwd"}
     while True:
         sys.stdout.write("$ ")
         sys.stdout.flush()
@@ -49,6 +49,9 @@ def main():
                         print(f"exit: {args[0]}: numeric argument required", file=sys.stderr)
                         status = 1
                 sys.exit(status)
+
+            elif cmd == "pwd":
+                print(shutil.os.getcwd())
 
             else:
                 # Check if command exists in PATH
