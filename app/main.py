@@ -1,6 +1,7 @@
 import shutil
 import sys
 import subprocess
+import os
 
 
 def main():
@@ -55,8 +56,11 @@ def main():
             
             elif cmd == "cd":
                 if args:
+                    target = args[0]
+                    if target == "~":
+                        target = os.environ.get("HOME", "")
                     try:
-                        shutil.os.chdir(args[0])
+                        shutil.os.chdir(target)
                     except FileNotFoundError:
                         print(f"cd: {args[0]}: No such file or directory", file=sys.stderr)
                     except PermissionError:
