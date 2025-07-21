@@ -24,7 +24,7 @@ def get_executable_completions(prefix):
                         seen.add(fname)
         except Exception:
             continue
-    return completions
+    return sorted(completions)
 
 def completer(text, state):
     global tab_state
@@ -56,7 +56,6 @@ def completer(text, state):
             return None
     return None
 
-
 def main():
     builtins = {"echo", "exit", "type", "pwd", "cd"}
     readline.set_completer(completer)
@@ -64,9 +63,11 @@ def main():
     while True:
         sys.stdout.write("$ ")
         sys.stdout.flush()
-
         try:
             line = input()
+            tab_state["last_prefix"] = ""
+            tab_state["tab_count"] = 0
+            tab_state["matches"] = []
             parts = shlex.split(line, posix=True)
             if not parts:
                 continue
