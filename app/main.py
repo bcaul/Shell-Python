@@ -3,6 +3,7 @@ import sys
 import subprocess
 import os
 import shlex
+import io
 
 try:
     import readline
@@ -86,6 +87,54 @@ def completer(text, state):
     else:
         return None
 
+def run_builtin(cmd, args, inp=None, out=None):
+    # Save original stdin/stdout
+    orig_in, orig_out = sys.stdin, sys.stdout
+    if inp:
+        sys.stdin = inp
+    if out:
+        sys.stdout = out
+    try:
+        if cmd == "echo":
+            print(" ".join(args))
+        elif cmd == "pwd":
+            print(shutil.os.getcwd())
+        elif cmd == "type":
+            if args:
+                arg_cmd = str(args[0])
+                if arg_cmd in builtins:
+                    print(f"{arg_cmd} is a shell builtin")
+                elif p := shutil.which(arg_cmd):
+                    print(f"{arg_cmd} is {p}")
+                else:
+                    print(f"{arg_cmd}: not found")
+            else:
+                print("argument required after type command")
+        elif cmd == "exit":
+            status = 0
+            if args:
+                try:
+                    status = int(args[0])
+                except ValueError:
+                    print(f"exit: {args[0]}: numeric argument required", file=sys.stderr)
+                    status = 1
+            sys.exit(status)
+        elif cmd == "cd":
+            if args:
+                target = args[0]
+                if target == "~":
+                    target = os.environ.get("HOME", "")
+                try:
+                    shutil.os.chdir(target)
+                except FileNotFoundError:
+                    print(f"cd: {args[0]}: No such file or directory", file=sys.stderr)
+                except PermissionError:
+                    print(f"cd: {args[0]}: Permission denied", file=sys.stderr)
+            else:
+                print("cd: missing argument", file=sys.stderr)
+    finally:
+        sys.stdin, sys.stdout = orig_in, orig_out
+
 def main():
     builtins = {"echo", "exit", "type", "pwd", "cd"}
     readline.set_completer(completer)
@@ -102,12 +151,36 @@ def main():
                 left, right = line.split("|", 1)
                 left_cmd = shlex.split(left.strip())
                 right_cmd = shlex.split(right.strip())
-                # Only handle external commands for pipelines
-                p1 = subprocess.Popen(left_cmd, stdout=subprocess.PIPE)
-                p2 = subprocess.Popen(right_cmd, stdin=p1.stdout)
-                p1.stdout.close()
-                p2.communicate()
+                left_is_builtin = left_cmd[0] in builtins
+                right_is_builtin = right_cmd[0] in builtins
+
+                if left_is_builtin and right_is_builtin:
+                    # Both builtins: run left, pipe output to right
+                    buf = io.StringIO()
+                    run_builtin(left_cmd[0], left_cmd[1:], out=buf)
+                    buf.seek(0)
+                    run_builtin(right_cmd[0], right_cmd[1:], inp=buf)
+                elif left_is_builtin:
+                    # Left is builtin, right is external
+                    buf = io.StringIO()
+                    run_builtin(left_cmd[0], left_cmd[1:], out=buf)
+                    buf.seek(0)
+                    p2 = subprocess.Popen(right_cmd, stdin=subprocess.PIPE)
+                    p2.communicate(input=buf.read().encode())
+                elif right_is_builtin:
+                    # Left is external, right is builtin
+                    p1 = subprocess.Popen(left_cmd, stdout=subprocess.PIPE)
+                    out, _ = p1.communicate()
+                    buf = io.StringIO(out.decode())
+                    run_builtin(right_cmd[0], right_cmd[1:], inp=buf)
+                else:
+                    # Both external
+                    p1 = subprocess.Popen(left_cmd, stdout=subprocess.PIPE)
+                    p2 = subprocess.Popen(right_cmd, stdin=p1.stdout)
+                    p1.stdout.close()
+                    p2.communicate()
                 continue
+
             parts = shlex.split(line, posix=True)
             if not parts:
                 continue
