@@ -7,11 +7,27 @@ import readline
 
 
 def completer(text, state):
-    builtins = ["echo", "exit"]
-    options = [cmd for cmd in builtins if cmd.startswith(text)]
-    if state < len(options):
-        # Add a space after the completion
-        return options[state] + " "
+    builtins = ["echo", "exit", "type", "pwd", "cd"]
+    completions = [cmd for cmd in builtins if cmd.startswith(text)]
+
+    # Add external executables from PATH
+    path_dirs = os.environ.get("PATH", "").split(os.pathsep)
+    seen = set(completions)
+    for dir in path_dirs:
+        if not os.path.isdir(dir):
+            continue
+        try:
+            for fname in os.listdir(dir):
+                if fname.startswith(text):
+                    full_path = os.path.join(dir, fname)
+                    if os.access(full_path, os.X_OK) and fname not in seen:
+                        completions.append(fname)
+                        seen.add(fname)
+        except Exception:
+            continue
+
+    if state < len(completions):
+        return completions[state] + " "
     return None
 
 
