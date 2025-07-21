@@ -5,12 +5,11 @@ import os
 import shlex
 import readline
 
+tab_state = {"last_prefix": "", "tab_count": 0, "matches": []}
 
-def completer(text, state):
+def get_executable_completions(prefix):
     builtins = ["echo", "exit", "type", "pwd", "cd"]
-    completions = [cmd for cmd in builtins if cmd.startswith(text)]
-
-    # Add external executables from PATH
+    completions = [cmd for cmd in builtins if cmd.startswith(prefix)]
     path_dirs = os.environ.get("PATH", "").split(os.pathsep)
     seen = set(completions)
     for dir in path_dirs:
@@ -18,16 +17,43 @@ def completer(text, state):
             continue
         try:
             for fname in os.listdir(dir):
-                if fname.startswith(text):
+                if fname.startswith(prefix):
                     full_path = os.path.join(dir, fname)
                     if os.access(full_path, os.X_OK) and fname not in seen:
                         completions.append(fname)
                         seen.add(fname)
         except Exception:
             continue
+    return completions
 
-    if state < len(completions):
-        return completions[state] + " "
+def completer(text, state):
+    global tab_state
+    matches = get_executable_completions(text)
+    # Track tab presses and prefix
+    if tab_state["last_prefix"] != text:
+        tab_state["last_prefix"] = text
+        tab_state["tab_count"] = 1
+        tab_state["matches"] = matches
+    else:
+        tab_state["tab_count"] += 1
+
+    if len(matches) == 1:
+        tab_state["tab_count"] = 0
+        return matches[0] + " "
+    elif len(matches) > 1:
+        if tab_state["tab_count"] == 1:
+            # First TAB: ring bell
+            sys.stdout.write('\a')
+            sys.stdout.flush()
+            return None
+        elif tab_state["tab_count"] == 2:
+            # Second TAB: print all matches
+            sys.stdout.write("\n" + "  ".join(matches) + "\n$ " + text)
+            sys.stdout.flush()
+            tab_state["tab_count"] = 0
+            return None
+        else:
+            return None
     return None
 
 
