@@ -39,7 +39,10 @@ def completer(text, state):
 
     if len(matches) == 1:
         tab_state["tab_count"] = 0
-        return matches[0] + " "
+        # Replace the input line with the completed command and a space
+        readline.replace_line(matches[0] + " ", 0)
+        readline.redisplay()
+        return None
     elif len(matches) > 1:
         if tab_state["tab_count"] == 1:
             # First TAB: ring bell
