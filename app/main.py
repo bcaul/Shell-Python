@@ -40,6 +40,8 @@ def completer(text, state):
     if len(matches) == 1:
         tab_state["tab_count"] = 0
         # Replace the input line with the completed command and a space
+        sys.stdout.write("\r$ " + matches[0] + " ")
+        sys.stdout.flush()
         readline.replace_line(matches[0] + " ", 0)
         readline.redisplay()
         return None
