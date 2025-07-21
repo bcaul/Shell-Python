@@ -98,6 +98,16 @@ def main():
             tab_state["last_prefix"] = ""
             tab_state["tab_count"] = 0
             tab_state["matches"] = []
+            if "|" in line:
+                left, right = line.split("|", 1)
+                left_cmd = shlex.split(left.strip())
+                right_cmd = shlex.split(right.strip())
+                # Only handle external commands for pipelines
+                p1 = subprocess.Popen(left_cmd, stdout=subprocess.PIPE)
+                p2 = subprocess.Popen(right_cmd, stdin=p1.stdout)
+                p1.stdout.close()
+                p2.communicate()
+                continue
             parts = shlex.split(line, posix=True)
             if not parts:
                 continue
