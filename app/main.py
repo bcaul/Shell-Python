@@ -30,6 +30,19 @@ def get_executable_completions(prefix):
             continue
     return sorted(completions)
 
+def longest_common_prefix(strings):
+    if not strings:
+        return ""
+    prefix = strings[0]
+    for s in strings[1:]:
+        i = 0
+        while i < len(prefix) and i < len(s) and prefix[i] == s[i]:
+            i += 1
+        prefix = prefix[:i]
+        if not prefix:
+            break
+    return prefix
+
 def completer(text, state):
     global tab_state
     matches = get_executable_completions(text)
@@ -41,25 +54,37 @@ def completer(text, state):
     else:
         tab_state["tab_count"] += 1
 
+    if not matches:
+        return None
+
+    # If only one match, complete to it
     if len(matches) == 1:
         tab_state["tab_count"] = 0
         if state == 0:
             return matches[0] + " "
         else:
             return None
-    elif len(matches) > 1:
-        if tab_state["tab_count"] == 1:
-            sys.stdout.write('\a')
-            sys.stdout.flush()
-            return None
-        elif tab_state["tab_count"] == 2:
-            sys.stdout.write("\n" + "  ".join(matches) + "\n$ " + text)
-            sys.stdout.flush()
-            tab_state["tab_count"] = 0
-            return None
+
+    # Multiple matches: complete to longest common prefix
+    lcp = longest_common_prefix(matches)
+    if lcp and lcp != text:
+        if state == 0:
+            return lcp
         else:
             return None
-    return None
+
+    # If no further completion, handle bell and list as before
+    if tab_state["tab_count"] == 1:
+        sys.stdout.write('\a')
+        sys.stdout.flush()
+        return None
+    elif tab_state["tab_count"] == 2:
+        sys.stdout.write("\n" + "  ".join(matches) + "\n$ " + text)
+        sys.stdout.flush()
+        tab_state["tab_count"] = 0
+        return None
+    else:
+        return None
 
 def main():
     builtins = {"echo", "exit", "type", "pwd", "cd"}
