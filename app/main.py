@@ -3,7 +3,11 @@ import sys
 import subprocess
 import os
 import shlex
-import readline
+
+try:
+    import readline
+except ImportError:
+    import pyreadline3 as readline
 
 tab_state = {"last_prefix": "", "tab_count": 0, "matches": []}
 
