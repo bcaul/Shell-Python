@@ -135,6 +135,54 @@ def run_builtin(cmd, args, inp=None, out=None):
     finally:
         sys.stdin, sys.stdout = orig_in, orig_out
 
+def run_pipeline(commands, builtins):
+    """Run a pipeline of commands, handling built-ins and externals."""
+    n = len(commands)
+    prev_output = None  # For input to the next command
+
+    for i, cmd_parts in enumerate(commands):
+        cmd = cmd_parts[0]
+        args = cmd_parts[1:]
+        is_builtin = cmd in builtins
+
+        # If not last command, prepare a buffer for output
+        if i < n - 1:
+            buf = io.StringIO()
+            out = buf
+        else:
+            out = sys.stdout
+
+        inp = prev_output
+
+        if is_builtin:
+            # For built-ins, use run_builtin with inp/out
+            run_builtin(cmd, args, inp=inp, out=out)
+        else:
+            # For externals, use subprocess
+            stdin = inp if inp is None else subprocess.PIPE
+            stdout = out if out != sys.stdout else None
+            if inp:
+                # Read input from inp and pass to process
+                p = subprocess.Popen([cmd] + args, stdin=subprocess.PIPE, stdout=stdout)
+                input_bytes = inp.read().encode()
+                out_bytes, _ = p.communicate(input=input_bytes)
+                if out != sys.stdout and out is not None and out_bytes is not None:
+                    out.write(out_bytes.decode())
+            else:
+                p = subprocess.Popen([cmd] + args, stdout=stdout)
+                out_bytes, _ = p.communicate()
+                if out != sys.stdout and out is not None and out_bytes is not None:
+                    out.write(out_bytes.decode())
+
+        # Prepare input for next command
+        if i < n - 1:
+            if out is sys.stdout:
+                # Should not happen, but just in case
+                prev_output = None
+            else:
+                out.seek(0)
+                prev_output = out
+
 def main():
     builtins = {"echo", "exit", "type", "pwd", "cd"}
     readline.set_completer(completer)
@@ -148,37 +196,11 @@ def main():
             tab_state["tab_count"] = 0
             tab_state["matches"] = []
             if "|" in line:
-                left, right = line.split("|", 1)
-                left_cmd = shlex.split(left.strip())
-                right_cmd = shlex.split(right.strip())
-                left_is_builtin = left_cmd[0] in builtins
-                right_is_builtin = right_cmd[0] in builtins
-
-                if left_is_builtin and right_is_builtin:
-                    # Both builtins: run left, pipe output to right
-                    buf = io.StringIO()
-                    run_builtin(left_cmd[0], left_cmd[1:], out=buf)
-                    buf.seek(0)
-                    run_builtin(right_cmd[0], right_cmd[1:], inp=buf)
-                elif left_is_builtin:
-                    # Left is builtin, right is external
-                    buf = io.StringIO()
-                    run_builtin(left_cmd[0], left_cmd[1:], out=buf)
-                    buf.seek(0)
-                    p2 = subprocess.Popen(right_cmd, stdin=subprocess.PIPE)
-                    p2.communicate(input=buf.read().encode())
-                elif right_is_builtin:
-                    # Left is external, right is builtin
-                    p1 = subprocess.Popen(left_cmd, stdout=subprocess.PIPE)
-                    out, _ = p1.communicate()
-                    buf = io.StringIO(out.decode())
-                    run_builtin(right_cmd[0], right_cmd[1:], inp=buf)
-                else:
-                    # Both external
-                    p1 = subprocess.Popen(left_cmd, stdout=subprocess.PIPE)
-                    p2 = subprocess.Popen(right_cmd, stdin=p1.stdout)
-                    p1.stdout.close()
-                    p2.communicate()
+                # Split pipeline into commands
+                pipeline_cmds = [shlex.split(seg.strip()) for seg in line.split("|")]
+                if not all(pipeline_cmds):
+                    continue
+                run_pipeline(pipeline_cmds, builtins)
                 continue
 
             parts = shlex.split(line, posix=True)
